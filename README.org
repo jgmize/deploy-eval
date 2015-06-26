@@ -1,0 +1,106 @@
+* Mozilla.org deployment evaluation plan
+Mozilla.org is currently deployed in two datacenters (PHX1 and SCL3). We plan to deploy
+Mozilla.org to multiple regions in AWS, and use geo-targetted DNS to direct traffic to the
+nearest available region to reduce global latency and improve resiliency.
+** Current deployment system
+- Chief is python web app developed at Mozilla that runs on an "admin node" in PHX1
+  - runs deployment scripts in the bedrock repo to deploy new versions of
+    bedrock to "webheads" in each datacenter
+- Each cluster is behind "ZLB" (AKA "Zeus") caching load balancer clusters
+  - Proprietary product acquired by Riverbed
+- backed by Memcached and MySQL clusters in the same datacenter 
+- MySQL clusters are configured to use multi-master replication across the datacenters. 
+- Under normal circumstances the traffic is split evenlty between the datacenters via DNS round
+  robin, but each cluster is capable of handling the full load of normal production traffic.
+- DNS records for mozilla.org are managed by Dynect
+  - in the event of a datacenter outage Dynect will automatically direct all
+    traffic to the the other datacenter
+- Mozilla.org also makes heavy use of a CDN, which is currently managed by Cedexis
+** Evaluation criteria
+*** Desired Features
+- Open Source
+- Customizable
+- Vendor independence
+- Zero downtime deployments
+- Geographically distributed deployments
+- Developer-centered workflow
+- Easy rollback
+- Continuous Deployment pipline integration
+  - Immutable artifacts produced by CI (e.g., Jenkins)
+  - Automatic deployment of master branch to dev env
+  - Automatic deployment to production based on git tags
+*** Key performance indicators
+- Uptime
+- Cost
+- Time to deploy
+- Time to rollback
+- Number of deployment failures due to platform issues
+- Platform overhead and latency
+** Deployment systems considered
+*** Nubis
+- Open source
+- Vendor lock-in (AWS)
+- Mozilla IT recommended and supported solution
+- WIP
+*** Heroku
+- Proprietary
+- Vendor lock-in
+- Limited number of regions (2)
+- zero downtime deploys may be possible,
+  if problematic: https://devcenter.heroku.com/articles/preboot
+*** Elastic Beanstalk
+- Proprietary
+- Vendor lock-in
+- zero downtime deploys are not built-in, require custom development 
+*** Mesosphere stack
+- Open source
+- Can run in multiple clouds and on metal
+- Commercial support available
+- Mesos
+  - seems like the best available open source scheduler for
+    distributed systems
+- Marathon
+  - Only part of a deployment solution
+  - Less mature and proven than Mesos
+  - Aurora may be a better option for that layer
+- Does not provide a complete "PaaS" style solution
+- May be more complexity than justifiable for just deploying
+  web apps
+*** Kubernetes 
+- beta
+- powers proprietary "Google Container Engine"
+- open source, but key dependencies for full deployment solution are missing
+- GCE depends on several proprietary google technologies, little incentive
+  for google to invest in integration with open source equivalents
+*** Deis
+- Open source PaaS
+- Built on Docker and CoreOS
+- Heroku inspired workflow
+- In production for a number of organizations
+- Commercial support available through Engine Yard
+** Evaluation timeline
+- June
+  - Discussions with Mozilla IT and Engine yard
+  - Agreed to build and evaluate protype deployments on Nubis and Deis in July
+- July
+  - 12 factor bedrock
+  - Prototype continuous deployments of bedrock master branch to Nubis and Deis
+    - no legacy PHP or complex apache redirects needed for prototypes
+  - 2 5-node Deis clusters in separate Regions
+  - Nubis sandbox
+  - Initial load testing
+  - Make decision between Nubis and Deis by end of July
+- August
+  - Eliminate mozilla.org dependency on Apache and PHP
+  - Performance optimizations
+  - DB replication and backups
+  - Monitoring
+  - Metrics
+  - Logging
+  - Geo-targeted DNS
+- September
+  - Begin sending some percentage of production traffic to AWS
+  - Capable of scaling to full production load in AWS in case of SCL3 failure
+- October
+  - Decommission PHX1 bedrock deployment
+- Maintain legacy deployment system in SCL3 for minimum of 2 months
